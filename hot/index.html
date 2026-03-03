@@ -150,10 +150,19 @@ skyLayer.width = WORLD_W; skyLayer.height = WORLD_H;
 bgLayer.width = WORLD_W; bgLayer.height = WORLD_H;
 bldgLayer.width = WORLD_W; bldgLayer.height = WORLD_H;
 
+var camY = 0, viewH = WORLD_H;
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  scale = canvas.height / WORLD_H;
+  // landscape: crop sky, focus on street
+  if(canvas.width > canvas.height && canvas.height < 500){
+    viewH = Math.floor(WORLD_H * 0.7);
+    camY = 50;
+  }else{
+    viewH = WORLD_H;
+    camY = 0;
+  }
+  scale = canvas.height / viewH;
   viewW = Math.ceil(canvas.width / scale);
   comp.width = viewW + 4;
   comp.height = WORLD_H;
@@ -1077,7 +1086,7 @@ var dragMode='none',dragChar=null;
 var maxCamX=function(){return Math.max(0,WORLD_W-viewW)};
 
 function hitTestChar(screenX,screenY){
-  var wx=screenX/scale+cameraX,wy=screenY/scale;
+  var wx=screenX/scale+cameraX,wy=screenY/scale+camY;
   for(var i=chars.length-1;i>=0;i--){
     var ch=chars[i],cx=ch.x-5,cy=CHAR_FEET-ch.spriteH-4;
     if(wx>=cx&&wx<=cx+24&&wy>=cy&&wy<=cy+ch.spriteH+8)return ch;
@@ -1116,7 +1125,7 @@ function hideMonologue(){
 function positionMonologue(){
   if(!activeMonologue)return;
   var ch=activeMonologue;
-  var sx=(ch.x-cameraX)*scale,sy=(CHAR_FEET-ch.spriteH-6)*scale;
+  var sx=(ch.x-cameraX)*scale,sy=(CHAR_FEET-ch.spriteH-6-camY)*scale;
   var el=document.getElementById('monologue');
   var w=el.offsetWidth||200,h=el.offsetHeight||60;
   var x=sx-w/2,y=sy-h-12;
@@ -1153,7 +1162,7 @@ window.addEventListener('mousemove',function(e){
     if(Math.abs(e.clientX-dragStartX)>4||Math.abs(e.clientY-dragStartY)>4)dragMoved=true;
     if(dragMoved){
       if(dragMode==='char'&&dragChar){
-        dragChar.x=e.clientX/scale+cameraX;dragChar.dragY=e.clientY/scale;
+        dragChar.x=e.clientX/scale+cameraX;dragChar.dragY=e.clientY/scale+camY;
         dragChar.beingDragged=true;dragChar.walking=false;
       }else{var dx=(e.clientX-dragStartX)/scale;cameraX=clamp(dragStartCamX-dx,0,maxCamX())}
     }
@@ -1186,7 +1195,7 @@ canvas.addEventListener('touchmove',function(e){
   if(Math.abs(t.clientX-dragStartX)>4||Math.abs(t.clientY-dragStartY)>4)dragMoved=true;
   if(dragMoved){
     if(dragMode==='char'&&dragChar){
-      dragChar.x=t.clientX/scale+cameraX;dragChar.dragY=t.clientY/scale;
+      dragChar.x=t.clientX/scale+cameraX;dragChar.dragY=t.clientY/scale+camY;
       dragChar.beingDragged=true;dragChar.walking=false;
     }else{var dx=(t.clientX-dragStartX)/scale;cameraX=clamp(dragStartCamX-dx,0,maxCamX())}
   }
@@ -2528,7 +2537,7 @@ function render(){
   // scale to display
   ctx.imageSmoothingEnabled=false;
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(comp,0,0,viewW,WORLD_H,0,0,canvas.width,canvas.height);
+  ctx.drawImage(comp,0,camY,viewW,viewH,0,0,canvas.width,canvas.height);
 }
 
 // ═══════════════════════════════════════════
@@ -2668,31 +2677,43 @@ if(hintEl)hintEl.textContent=isTouch?'- tap a character -':'- click a character 
 // ═══════════════════════════════════════════
 // SOUND SYSTEM (Web Audio API)
 // ═══════════════════════════════════════════
-var audioCtx=null,soundOn=false;
-function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume()}
+var audioCtx=null,soundOn=false,audioUnlocked=false;
+function initAudio(){
+  if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  // iOS Safari needs a silent buffer played during a user gesture to truly unlock
+  if(!audioUnlocked){
+    var b=audioCtx.createBuffer(1,1,22050);
+    var s=audioCtx.createBufferSource();
+    s.buffer=b;s.connect(audioCtx.destination);s.start(0);
+    audioUnlocked=true;
+  }
+}
 function playTone(freq,dur,type,vol){
   if(!soundOn||!audioCtx)return;
+  if(audioCtx.state==='suspended')audioCtx.resume();
   var o=audioCtx.createOscillator(),g=audioCtx.createGain();
   o.type=type||'square';o.frequency.value=freq;
   g.gain.value=vol||0.06;g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
   o.connect(g);g.connect(audioCtx.destination);
   o.start(audioCtx.currentTime);o.stop(audioCtx.currentTime+dur);
 }
-function sfxTap(){playTone(880,0.08,'square',0.05);playTone(1100,0.06,'square',0.03)}
-function sfxPlace(){playTone(440,0.1,'triangle',0.06);playTone(550,0.08,'triangle',0.04)}
-function sfxBubble(){playTone(660,0.06,'sine',0.03);playTone(880,0.04,'sine',0.02)}
-function sfxDrop(){playTone(220,0.15,'sawtooth',0.04);playTone(180,0.1,'sawtooth',0.03)}
-function sfxPoop(){playTone(150,0.2,'sawtooth',0.05);playTone(100,0.15,'sawtooth',0.03)}
-function sfxRide(){playTone(280,0.12,'triangle',0.03);playTone(350,0.08,'triangle',0.02)}
-function sfxSkate(){playTone(200,0.15,'sawtooth',0.02);playTone(260,0.1,'sawtooth',0.015)}
+function sfxTap(){playTone(880,0.08,'square',0.2);playTone(1100,0.06,'square',0.12)}
+function sfxPlace(){playTone(440,0.1,'triangle',0.25);playTone(550,0.08,'triangle',0.15)}
+function sfxBubble(){playTone(660,0.06,'sine',0.12);playTone(880,0.04,'sine',0.08)}
+function sfxDrop(){playTone(220,0.15,'sawtooth',0.15);playTone(180,0.1,'sawtooth',0.1)}
+function sfxPoop(){playTone(150,0.2,'sawtooth',0.2);playTone(100,0.15,'sawtooth',0.12)}
+function sfxRide(){playTone(280,0.12,'triangle',0.12);playTone(350,0.08,'triangle',0.08)}
+function sfxSkate(){playTone(200,0.15,'sawtooth',0.1);playTone(260,0.1,'sawtooth',0.06)}
 // ambient drone + intermittent traffic
 var ambientNode=null,trafficInterval=null;
 function startAmbient(){
   if(!audioCtx||ambientNode)return;
+  if(audioCtx.state==='suspended')audioCtx.resume();
   // low city hum
   ambientNode=audioCtx.createOscillator();var g=audioCtx.createGain();
   ambientNode.type='sine';ambientNode.frequency.value=55;
-  g.gain.value=0.012;
+  g.gain.value=0.05;
   ambientNode.connect(g);g.connect(audioCtx.destination);
   ambientNode.start();
   // intermittent traffic — random honks and engine pass-bys
@@ -2701,13 +2722,13 @@ function startAmbient(){
     var r=Math.random();
     if(r<0.3){
       // car pass-by: low rumble that fades
-      playTone(80+Math.random()*40,0.6+Math.random()*0.8,'sawtooth',0.008+Math.random()*0.006);
+      playTone(80+Math.random()*40,0.6+Math.random()*0.8,'sawtooth',0.04+Math.random()*0.03);
     }else if(r<0.45){
       // distant honk
-      playTone(340+Math.random()*60,0.15+Math.random()*0.1,'square',0.012);
+      playTone(340+Math.random()*60,0.15+Math.random()*0.1,'square',0.06);
     }else if(r<0.55){
       // truck rumble
-      playTone(50+Math.random()*20,1.0+Math.random()*0.5,'sawtooth',0.006);
+      playTone(50+Math.random()*20,1.0+Math.random()*0.5,'sawtooth',0.03);
     }
   },3000+Math.random()*4000);
 }
