@@ -13,8 +13,8 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
   box-shadow:inset 0 0 120px rgba(0,0,0,0.2);
   mix-blend-mode:multiply}
 #toolbar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;padding:10px 16px;
-  background:rgba(0,0,0,0.75);border-radius:20px;z-index:10;display:none;align-items:center;flex-wrap:wrap;max-width:92vw;justify-content:center}
-.tool-item{display:flex;flex-direction:column;align-items:center;cursor:pointer;border:2px solid rgba(255,255,255,0.3);border-radius:8px;padding:6px 8px;transition:border-color 0.15s;min-width:44px}
+  background:rgba(0,0,0,0.75);border-radius:20px;z-index:10;display:none;align-items:center;flex-wrap:nowrap;overflow-x:auto;max-width:95vw;justify-content:flex-start;-webkit-overflow-scrolling:touch}
+.tool-item{display:flex;flex-direction:column;align-items:center;cursor:pointer;border:2px solid rgba(255,255,255,0.3);border-radius:8px;padding:6px 8px;transition:border-color 0.15s;min-width:44px;flex-shrink:0}
 .tool-label{color:rgba(240,232,216,0.7);font-family:'Courier New',monospace;font-size:9px;margin-top:3px;text-transform:uppercase;letter-spacing:1px}
 #instructions{position:fixed;bottom:auto;top:50%;left:50%;transform:translate(-50%,-50%);color:#282020;
   font-family:'Courier New',monospace;font-size:15px;font-weight:bold;text-align:center;line-height:1.9;
@@ -61,7 +61,7 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
 #sound-toggle:hover{background:#F0E8D8}
 #sound-toggle.on{background:#006B3F;color:#F0F0E8;border-color:#00A060}
 @media(max-width:600px){
-  #toolbar{bottom:10px;gap:4px;padding:6px 8px;border-radius:14px}
+  #toolbar{bottom:10px;gap:4px;padding:6px 8px;border-radius:14px;flex-wrap:nowrap;overflow-x:auto;max-width:95vw;justify-content:flex-start}
   .tool-item canvas{width:24px!important;height:24px!important}
   .tool-label{font-size:6px}
   #instructions{font-size:13px;max-width:88vw;bottom:auto;top:50%;left:50%;transform:translate(-50%,-50%);padding:14px 18px;line-height:1.7}
@@ -77,6 +77,17 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
   #toolbar{bottom:15px;gap:6px;padding:7px 12px}
   #instructions{max-width:380px;bottom:auto;top:50%;left:50%;transform:translate(-50%,-50%)}
   #monologue{max-width:280px;font-size:13px}
+}
+@media(max-height:500px){
+  #toolbar{bottom:6px;gap:4px;padding:5px 8px;border-radius:12px;flex-wrap:nowrap;overflow-x:auto;max-width:95vw;justify-content:flex-start}
+  .tool-item canvas{width:24px!important;height:24px!important}
+  .tool-item{padding:4px 6px}
+  .tool-label{font-size:6px}
+  #instructions{font-size:12px;max-width:70vw;padding:10px 14px;line-height:1.5}
+  #monologue{max-width:50vw;font-size:11px;max-height:60vh}
+  #idle-prompt{max-width:70vw;font-size:13px;padding:14px 18px}
+  #hint{bottom:55px}
+  .scroll-arrow{font-size:32px}
 }
 </style>
 </head>
@@ -151,6 +162,7 @@ function resize() {
 }
 resize();
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', function(){setTimeout(resize,150)});
 
 // ═══════════════════════════════════════════
 // UTILS
@@ -2385,17 +2397,27 @@ function setupToolbar(){
     drawToolIcon(cx,type);item.appendChild(c);
     var lbl=document.createElement('div');lbl.className='tool-label';lbl.textContent=TOOL_LABELS[type]||type;
     item.appendChild(lbl);
-    // drag-to-place: mousedown/touchstart on toolbar item starts dragging
-    function startToolDrag(e,type){
+    // desktop: mousedown starts drag-to-place
+    item.addEventListener('mousedown',function(e){
       e.stopPropagation();e.preventDefault();
       selectedTool=type;
       tb.querySelectorAll('.tool-item').forEach(function(el){el.style.borderColor='rgba(255,255,255,0.3)'});
       item.style.borderColor='#F0D040';
       dragMode='tool';setCursor('place');
-    }
-    item.addEventListener('mousedown',function(e){startToolDrag(e,type)});
-    item.addEventListener('touchstart',function(e){startToolDrag(e,type)},{passive:false});
-    // also allow click to toggle select for tap-then-tap placement
+    });
+    // mobile: track touch to distinguish tap vs scroll
+    var tStart=null,tMoved=false;
+    item.addEventListener('touchstart',function(e){tStart={x:e.touches[0].clientX,y:e.touches[0].clientY};tMoved=false},{passive:true});
+    item.addEventListener('touchmove',function(e){if(tStart){var dx=e.touches[0].clientX-tStart.x,dy=e.touches[0].clientY-tStart.y;if(Math.abs(dx)>6||Math.abs(dy)>6)tMoved=true}},{passive:true});
+    item.addEventListener('touchend',function(e){
+      if(!tMoved){
+        e.preventDefault();
+        if(selectedTool===type){selectedTool=null;item.style.borderColor='rgba(255,255,255,0.3)'}
+        else{selectedTool=type;tb.querySelectorAll('.tool-item').forEach(function(el){el.style.borderColor='rgba(255,255,255,0.3)'});item.style.borderColor='#F0D040'}
+      }
+      tStart=null;tMoved=false;
+    },{passive:false});
+    // desktop click toggle
     item.addEventListener('click',function(e){
       e.stopPropagation();
       if(selectedTool===type&&dragMode!=='tool'){selectedTool=null;item.style.borderColor='rgba(255,255,255,0.3)';setCursor('default')}
@@ -2636,7 +2658,7 @@ var isTouch='ontouchstart' in window||navigator.maxTouchPoints>0;
 var instEl=document.getElementById('instructions');
 if(instEl){
   instEl.innerHTML=isTouch
-    ?'one block in LA. everybody\'s got a story.<br>swipe to explore the block<br>tap anyone to read theirs<br>hold + drag people to different spots<br>tap an item below, then tap the street to place it'
+    ?'one block in LA. everybody\'s got a story.<br>swipe to explore the block<br>tap anyone to read theirs<br>hold + drag people to different spots<br>scroll the bar below, tap an item, then tap the street to place it'
     :'one block in LA. everybody\'s got a story.<br>scroll to explore the block<br>click anyone to read theirs<br>click + drag people around<br>drag items from the bar onto the street';
 }
 // also adjust hint
@@ -2647,7 +2669,7 @@ if(hintEl)hintEl.textContent=isTouch?'- tap a character -':'- click a character 
 // SOUND SYSTEM (Web Audio API)
 // ═══════════════════════════════════════════
 var audioCtx=null,soundOn=false;
-function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)()}
+function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume()}
 function playTone(freq,dur,type,vol){
   if(!soundOn||!audioCtx)return;
   var o=audioCtx.createOscillator(),g=audioCtx.createGain();
@@ -2691,6 +2713,10 @@ function startAmbient(){
 }
 function stopAmbient(){if(ambientNode){ambientNode.stop();ambientNode=null}if(trafficInterval){clearInterval(trafficInterval);trafficInterval=null}}
 // toggle button
+// unlock audio on first user interaction (required by iOS Safari & some Android)
+function unlockAudio(){initAudio();document.removeEventListener('touchstart',unlockAudio);document.removeEventListener('click',unlockAudio)}
+document.addEventListener('touchstart',unlockAudio,{passive:true});
+document.addEventListener('click',unlockAudio);
 var sndBtn=document.getElementById('sound-toggle');
 sndBtn.addEventListener('click',function(){
   initAudio();soundOn=!soundOn;
