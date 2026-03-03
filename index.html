@@ -2698,13 +2698,13 @@ function playTone(freq,dur,type,vol){
   o.connect(g);g.connect(audioCtx.destination);
   o.start(audioCtx.currentTime);o.stop(audioCtx.currentTime+dur);
 }
-function sfxTap(){playTone(880,0.08,'square',0.05);playTone(1100,0.06,'square',0.03)}
-function sfxPlace(){playTone(440,0.1,'triangle',0.06);playTone(550,0.08,'triangle',0.04)}
-function sfxBubble(){playTone(660,0.06,'sine',0.03);playTone(880,0.04,'sine',0.02)}
-function sfxDrop(){playTone(220,0.15,'sawtooth',0.04);playTone(180,0.1,'sawtooth',0.03)}
-function sfxPoop(){playTone(150,0.2,'sawtooth',0.05);playTone(100,0.15,'sawtooth',0.03)}
-function sfxRide(){playTone(280,0.12,'triangle',0.03);playTone(350,0.08,'triangle',0.02)}
-function sfxSkate(){playTone(200,0.15,'sawtooth',0.02);playTone(260,0.1,'sawtooth',0.015)}
+function sfxTap(){playTone(880,0.08,'square',0.2);playTone(1100,0.06,'square',0.12)}
+function sfxPlace(){playTone(440,0.1,'triangle',0.25);playTone(550,0.08,'triangle',0.15)}
+function sfxBubble(){playTone(660,0.06,'sine',0.12);playTone(880,0.04,'sine',0.08)}
+function sfxDrop(){playTone(220,0.15,'sawtooth',0.15);playTone(180,0.1,'sawtooth',0.1)}
+function sfxPoop(){playTone(150,0.2,'sawtooth',0.2);playTone(100,0.15,'sawtooth',0.12)}
+function sfxRide(){playTone(280,0.12,'triangle',0.12);playTone(350,0.08,'triangle',0.08)}
+function sfxSkate(){playTone(200,0.15,'sawtooth',0.1);playTone(260,0.1,'sawtooth',0.06)}
 // ambient drone + intermittent traffic
 var ambientNode=null,trafficInterval=null;
 function startAmbient(){
@@ -2713,7 +2713,7 @@ function startAmbient(){
   // low city hum
   ambientNode=audioCtx.createOscillator();var g=audioCtx.createGain();
   ambientNode.type='sine';ambientNode.frequency.value=55;
-  g.gain.value=0.012;
+  g.gain.value=0.05;
   ambientNode.connect(g);g.connect(audioCtx.destination);
   ambientNode.start();
   // intermittent traffic — random honks and engine pass-bys
@@ -2722,13 +2722,13 @@ function startAmbient(){
     var r=Math.random();
     if(r<0.3){
       // car pass-by: low rumble that fades
-      playTone(80+Math.random()*40,0.6+Math.random()*0.8,'sawtooth',0.008+Math.random()*0.006);
+      playTone(80+Math.random()*40,0.6+Math.random()*0.8,'sawtooth',0.04+Math.random()*0.03);
     }else if(r<0.45){
       // distant honk
-      playTone(340+Math.random()*60,0.15+Math.random()*0.1,'square',0.012);
+      playTone(340+Math.random()*60,0.15+Math.random()*0.1,'square',0.06);
     }else if(r<0.55){
       // truck rumble
-      playTone(50+Math.random()*20,1.0+Math.random()*0.5,'sawtooth',0.006);
+      playTone(50+Math.random()*20,1.0+Math.random()*0.5,'sawtooth',0.03);
     }
   },3000+Math.random()*4000);
 }
